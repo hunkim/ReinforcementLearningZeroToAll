@@ -33,7 +33,8 @@ Y = tf.placeholder(tf.float32, [None, output_size], name="input_y")
 advantages = tf.placeholder(tf.float32, name="reward_signal")
 
 # Loss function: log_likelihood * advantages
-log_lik = -tf.log(Y * action_pred + (1 - Y) * (1 - action_pred))
+#log_lik = -tf.log(Y * action_pred + (1 - Y) * (1 - action_pred))     # using author(awjuliani)'s original cost function (maybe log_likelihood)
+log_lik = -Y*tf.log(action_pred) - (1 - Y)*tf.log(1 - action_pred)    # using logistic regression cost function
 loss = tf.reduce_sum(log_lik * advantages)
 
 # Learning
