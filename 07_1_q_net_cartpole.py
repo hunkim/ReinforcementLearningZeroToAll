@@ -8,6 +8,7 @@ from collections import deque
 
 import gym
 env = gym.make('CartPole-v0')
+env._max_episode_steps = 501
 
 # Constants defining our neural network
 learning_rate = 1e-1
