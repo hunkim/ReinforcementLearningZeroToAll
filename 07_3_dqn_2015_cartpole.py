@@ -15,6 +15,7 @@ import gym
 from gym import wrappers
 
 env = gym.make('CartPole-v0')
+env._max_episode_steps = 10001
 
 # Constants defining our neural network
 input_size = env.observation_space.shape[0]

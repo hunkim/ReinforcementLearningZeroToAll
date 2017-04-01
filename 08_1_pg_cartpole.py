@@ -8,6 +8,7 @@ import tensorflow as tf
 import gym
 
 env = gym.make('CartPole-v0')
+env._max_episode_steps = 10001
 
 hidden_layer_neurons = 24
 learning_rate = 1e-2
