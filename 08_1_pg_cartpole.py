@@ -42,28 +42,38 @@ train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
 
 def discount_rewards(r, gamma=0.99):
-    """Takes 1d float array of rewards and computes discounted reward
-    e.g. f([1, 1, 1], 0.99) -> [1, 0.99, 0.9801] -> [1.22 -0.004 -1.22]
-    http://karpathy.github.io/2016/05/31/rl/ """
-    d_rewards = np.array([val * (gamma ** i) for i, val in enumerate(r)])
+    """ take 1D float array of rewards and compute discounted reward """
+    discounted_r = np.zeros_like(r, dtype=np.float32)
+    running_add = 0
+    for t in reversed(range(len(r))):
+        running_add = running_add * gamma + r[t]
+        discounted_r[t] = running_add
 
-    # Normalize/standardize rewards
-    d_rewards -= d_rewards.mean()
-    d_rewards /= d_rewards.std()
-    return d_rewards
+    return discounted_r
+
+# Testing Code
+# It's always recommended to test your code
+input = [1, 1, 1]
+output = discount_rewards(input)
+expect = [1 + 0.99 + 0.99**2, 1 + 0.99, 1]
+np.testing.assert_almost_equal(output, expect)
+
 
 
 # Setting up our environment
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-max_num_episodes = 5000
+max_num_episodes = 500
 
+# This list will contain episode rewards from the most recent 100 games
+# Clear Condition: Average reward per episode >= 195.0 over 100 games
+EPISODE_100_REWARD_LIST = []
 for step in range(max_num_episodes):
     # Initialize x stack, y stack, and rewards
-    xs = np.empty(0).reshape(0, input_size)
-    ys = np.empty(0).reshape(0, 1)
-    rewards = np.empty(0).reshape(0, 1)
+    xs = np.empty(shape=[0, input_size])
+    ys = np.empty(shape=[0, 1])
+    rewards = np.empty(shape=[0, 1])
 
     reward_sum = 0
     observation = env.reset()
@@ -91,17 +101,17 @@ for step in range(max_num_episodes):
             discounted_rewards = discount_rewards(rewards)
             l, _ = sess.run([loss, train],
                             feed_dict={X: xs, Y: ys, advantages: discounted_rewards})
-            break
 
-        if reward_sum > 10000:
-            print("Solved in {} episodes!".format(step))
+            EPISODE_100_REWARD_LIST.append(reward_sum)
+            if len(EPISODE_100_REWARD_LIST) > 100:
+                EPISODE_100_REWARD_LIST = EPISODE_100_REWARD_LIST[1:]
             break
 
     # Print status
-    print("Average reward for episode {}: {}. Loss: {}".format(
-        step, reward_sum, l))
-
-    if reward_sum > 10000:
+    print(f"[Episode {step:>5d}] Reward: {reward_sum:>4} Loss: {l:>10.5f}")
+    
+    if np.mean(EPISODE_100_REWARD_LIST) >= 195:
+        print(f"Game Cleared within {step} steps with the average reward: {np.mean(EPISODE_100_REWARD_LIST)}")
         break
 
 # See our trained bot in action
@@ -118,3 +128,5 @@ while True:
     if done:
         print("Total score: {}".format(reward_sum))
         break
+
+sess.close()

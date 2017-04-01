@@ -44,28 +44,30 @@ train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
 
 def discount_rewards(r, gamma=0.99):
-    """Takes 1d float array of rewards and computes discounted reward
-    e.g. f([1, 1, 1], 0.99) -> [1, 0.99, 0.9801] -> [1.22 -0.004 -1.22]
-    """
-    d_rewards = np.array([val * (gamma ** i) for i, val in enumerate(r)])
+    """ take 1D float array of rewards and compute discounted reward """
+    discounted_r = np.zeros_like(r, dtype=np.float32)
+    running_add = 0
+    for t in reversed(range(len(r))):
+        running_add = running_add * gamma + r[t]
+        discounted_r[t] = running_add
 
-    # Normalize/standardize rewards
-    d_rewards -= d_rewards.mean()
-    d_rewards /= d_rewards.std()
-    return d_rewards
+    return discounted_r
 
 
 # Setting up our environment
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-num_episodes = 5000
+num_episodes = 1000
+# This list will contain episode rewards from the most recent 100 games
+# Clear Condition: Average reward per episode >= 195.0 over 100 games
+EPISODE_100_REWARD_LIST = []
 for i in range(num_episodes):
 
     # Clear out game variables
-    xs = np.empty(0).reshape(0, input_size)
-    ys = np.empty(0).reshape(0, output_size)
-    rewards = np.empty(0).reshape(0, 1)
+    xs = np.empty(shape=[0, input_size])
+    ys = np.empty(shape=[0, output_size])
+    rewards = np.empty(shape=[0, 1])
 
     reward_sum = 0
     state = env.reset()
@@ -75,14 +77,14 @@ for i in range(num_episodes):
         x = np.reshape(state, [1, input_size])
 
         # Run the neural net to determine output
-        action_prob = sess.run(action_pred, feed_dict={X: x})
-        action_prob = np.squeeze(action_prob)  # shape (?, 2) -> 2
-        random_noise = np.random.uniform(0, 1, output_size)
-        action = np.argmax(action_prob + random_noise)
-
+        action_prob = sess.run(action_pred, feed_dict={X: x})        
+        action = np.random.choice(np.arange(output_size), p=action_prob[0])
+    
         # Append the observations and outputs for learning
         xs = np.vstack([xs, x])
-        y = np.eye(output_size)[action:action + 1]  # One hot encoding
+        y = np.zeros(output_size)
+        y[action] = 1
+        
         ys = np.vstack([ys, y])
 
         # Determine the outcome of our action
@@ -98,19 +100,19 @@ for i in range(num_episodes):
                                                                                     advantages: discounted_rewards})
             # print values for debugging
             # print(1, ll, la)
-
+            EPISODE_100_REWARD_LIST.append(reward_sum)
+            if len(EPISODE_100_REWARD_LIST) > 100:
+                EPISODE_100_REWARD_LIST = EPISODE_100_REWARD_LIST[1:]
             break
 
-        if reward_sum > 10000:
-            print("Solved in {} episodes!".format(i))
-            break
 
     # Print status
-    print("Average reward for episode {}: {}. Loss: {}".format(
-        i, reward_sum, l))
-
-    if reward_sum > 10000:
+    print(f"[Episode {i:>}] Reward: {reward_sum:>4} Loss: {l:>5.5}")
+    
+    if np.mean(EPISODE_100_REWARD_LIST) >= 195.0:
+        print(f"Game Cleared within {i} steps with the average reward: {np.mean(EPISODE_100_REWARD_LIST)}")
         break
+
 
 
 state = env.reset()
@@ -127,3 +129,5 @@ while True:
     if done:
         print("Total score: {}".format(reward_sum))
         break
+
+sess.close()
