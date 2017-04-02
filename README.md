@@ -22,11 +22,11 @@ pip install -r requirements.txt
 TODO: Need to add more test cases
 
 ```bash
-python -m unittest discover -s tests;
+pytest
 
 # http://stackoverflow.com/questions/14328406/
 pip install autopep8 # if you haven't install
-autopep8 . --recursive --in-place --pep8-passes 2000 --verbose
+autopep8 . --recursive --in-place --pep8-passes 2000 --verbose --ignore E501
 ```
 ## Automatically create requirements.txt
 

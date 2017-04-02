@@ -1,10 +1,17 @@
-'''
+""" DQN Class
+
 This code is based on:
 https://github.com/hunkim/DeepRL-Agents
 
 CF https://github.com/golbin/TensorFlow-Tutorials
 https://github.com/dennybritz/reinforcement-learning/blob/master/DQN/dqn.py
-'''
+
+Notes
+----------
+When modifying this code,
+write test codes in `tests/test_DQN.py` as well.
+
+"""
 import numpy as np
 import tensorflow as tf
 
@@ -50,16 +57,9 @@ class DQN:
             learning_rate=l_rate).minimize(self._loss)
 
     def predict(self, state):
-        x = np.reshape(state, [1, self.input_size])
+        x = np.reshape(state, [-1, self.input_size])
         return self.session.run(self._Qpred, feed_dict={self._X: x})
 
     def update(self, x_stack, y_stack):
         return self.session.run([self._loss, self._train], feed_dict={
             self._X: x_stack, self._Y: y_stack})
-
-
-def test():
-    pass
-
-if __name__ == "__main__":
-    test()
