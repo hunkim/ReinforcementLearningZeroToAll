@@ -13,6 +13,18 @@ However, we call for your comments and pull requests. Check out our style guide 
 
 * lab-XX-X-[name].py: TensorFlow lab code
 
+## How to use uploader:
+* Go to https://gym.openai.com/
+* Login with your github account
+    * https://gym.openai.com/users/YOUR_GITHUB_ACCOUNT
+* Grab the api key from  
+![user](assets/openai_user.jpg)
+* Modify `gym.ini`
+* In console
+```bash
+python gym_uploader.py gym-results/
+```
+
 ## Install requirements
 ```bash
 pip install -r requirements.txt
