@@ -28,22 +28,14 @@ class DQN:
 
         self._build_network()
 
-    def _build_network(self, h_size=10, l_rate=1e-1):
+    def _build_network(self, h_size=16, l_rate=0.01):
         with tf.variable_scope(self.net_name):
-            self._X = tf.placeholder(
-                tf.float32, [None, self.input_size], name="input_x")
+            self._X = tf.placeholder(tf.float32, [None, self.input_size], name="input_x")
+            net = self._X
 
-            # First layer of weights
-            W1 = tf.get_variable("W1", shape=[self.input_size, h_size],
-                                 initializer=tf.contrib.layers.xavier_initializer())
-            layer1 = tf.nn.tanh(tf.matmul(self._X, W1))
-
-            # Second layer of weights
-            W2 = tf.get_variable("W2", shape=[h_size, self.output_size],
-                                 initializer=tf.contrib.layers.xavier_initializer())
-
-            # Q prediction
-            self._Qpred = tf.matmul(layer1, W2)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, self.output_size)
+            self._Qpred = net
 
         # We need to define the parts of the network needed for learning a
         # policy

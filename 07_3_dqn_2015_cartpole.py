@@ -113,6 +113,8 @@ def main():
     # store the previous observations in replay memory
     replay_buffer = deque()
 
+    last_100_game_reward = deque()
+
     with tf.Session() as sess:
         mainDQN = dqn.DQN(sess, input_size, output_size, name="main")
         targetDQN = dqn.DQN(sess, input_size, output_size, name="target")
@@ -148,13 +150,8 @@ def main():
 
                 state = next_state
                 step_count += 1
-                if step_count > 10000:  # Good enough. Let's move on
-                    break
 
             print("Episode: {}  steps: {}".format(episode, step_count))
-            if step_count > 10000:
-                pass
-              #  break
 
             if episode % 10 == 1:  # train every 10 episode
                 # Get a random batch of experiences.
@@ -165,6 +162,17 @@ def main():
                 print("Loss: ", loss)
                 # copy q_net -> target_net
                 sess.run(copy_ops)
+
+            last_100_game_reward.append(step_count)
+
+            if len(last_100_game_reward) > 100:
+                last_100_game_reward.popleft()
+
+                avg_reward = np.mean(last_100_game_reward)
+
+                if avg_reward > 199:
+                    print(f"Game Cleared in {episode} episodes with avg reward {avg_reward}")
+                    break
 
         # See our trained bot in action
         env2 = wrappers.Monitor(env, 'gym-results', force=True)
