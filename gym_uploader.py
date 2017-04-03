@@ -30,6 +30,4 @@ if __name__ == '__main__':
         print("Please enter the API key in gym.ini ")
 
     else:
-        result = upload(args.path, key)
-        if not result:
-            print("error")
+        upload(args.path, key)
