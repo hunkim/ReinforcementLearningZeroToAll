@@ -10,8 +10,6 @@ import os
 
 env = gym.make("Pong-v0")
 
-hidden_layer_neurons = 200
-learning_rate = 1e-3
 gamma = .99
 
 SUMMARY_DIR = './tensorboard/pong'
@@ -19,39 +17,38 @@ CHECK_POINT_DIR = SUMMARY_DIR
 
 # Constants defining our neural network
 input_size = 80 * 80 * 4
-output_size = env.action_space.n
-print("Pong Action space", output_size)
+action_space = env.action_space.n
+print("Pong Action space", action_space)
 
-X = tf.placeholder(tf.float32, [None, input_size], name="input_x")
-x_image = tf.reshape(X, [-1, 80, 80, 1])
-tf.summary.image('input', x_image, 8)
+with tf.name_scope("cnn"):
+    X = tf.placeholder(tf.float32, [None, input_size], name="input_x")
+    x_image = tf.reshape(X, [-1, 80, 80, 4])
+    tf.summary.image('input', x_image, 8)
 
-# First layer of weights
-with tf.name_scope("layer1"):
-    W1 = tf.get_variable("W1", shape=[input_size, hidden_layer_neurons],
-                         initializer=tf.contrib.layers.xavier_initializer())
-    B1 = tf.Variable(tf.zeros([hidden_layer_neurons]))
-    layer1 = tf.nn.tanh(tf.matmul(X, W1) + B1)
+    # Build a convolutional layer random initialization
+    W_conv1 = tf.get_variable("W_conv1", shape = [5, 5, 4, 32], initializer=tf.contrib.layers.xavier_initializer()) 
+    # W is [row, col, channel, feature]
+    b_conv1 = tf.Variable(tf.zeros([32]), name="b_conv1")
+    h_conv1 = tf.nn.relu(tf.nn.conv2d(x_image, W_conv1, strides=[1, 2, 2, 1], padding='VALID') + b_conv1, name="h_conv1")
 
-    tf.summary.histogram("X", X)
-    tf.summary.histogram("weights", W1)
-    tf.summary.histogram("bias", B1)
-    tf.summary.histogram("layer", layer1)
+    W_conv2 = tf.get_variable("W_conv2", shape = [5, 5, 32, 64], initializer=tf.contrib.layers.xavier_initializer())
+    b_conv2 = tf.Variable(tf.zeros([64]), name="b_conv2")
+    h_conv2 = tf.nn.relu(tf.nn.conv2d(h_conv1, W_conv2, strides=[1, 2, 2, 1], padding='VALID') + b_conv2, name="h_conv2")
 
+    W_conv3 = tf.get_variable("W_conv3", shape = [5, 5, 64, 64], initializer=tf.contrib.layers.xavier_initializer())
+    b_conv3 = tf.Variable(tf.zeros([64]), name="b_conv3")
+    h_conv3 = tf.nn.relu(tf.nn.conv2d(h_conv2, W_conv3, strides=[1, 2, 2, 1], padding='VALID') + b_conv3, name="h_conv3")
+    
+    # Build a fully connected layer with softmax 
+    h_conv3_flat = tf.reshape(h_conv3, [-1, 7*7*64], name="h_pool2_flat")
+    W_fc1 = tf.get_variable("W_fc1", shape = [7*7*64, action_space], initializer=tf.contrib.layers.xavier_initializer())
+    b_fc1 = tf.Variable(tf.zeros([action_space]), name = 'b_fc1')
+    action_pred = tf.nn.softmax(tf.matmul(h_conv3_flat, W_fc1) + b_fc1, name="h_fc1")
 
-# Second layer of weights
-with tf.name_scope("layer2"):
-    W2 = tf.get_variable("W2", shape=[hidden_layer_neurons, output_size],
-                         initializer=tf.contrib.layers.xavier_initializer())
-    B2 = tf.Variable(tf.zeros([output_size]))
-    action_pred = tf.nn.softmax(tf.matmul(layer1, W2) + B2)
-
-    tf.summary.histogram("weights", W2)
-    tf.summary.histogram("bias", B2)
     tf.summary.histogram("action_pred", action_pred)
 
 # We need to define the parts of the network needed for learning a policy
-Y = tf.placeholder(tf.float32, [None, output_size], name="input_y")
+Y = tf.placeholder(tf.float32, [None, action_space], name="input_y")
 advantages = tf.placeholder(tf.float32, [None, 1], name="reward_signal")
 
 # Loss function
@@ -64,7 +61,7 @@ tf.summary.scalar("log_likelihood", tf.reduce_mean(log_lik))
 tf.summary.scalar("loss", loss)
 
 # Learning
-train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
+train = tf.train.AdamOptimizer().minimize(loss)
 
 # Some place holders for summary
 summary_reward = tf.placeholder(tf.float32, shape=(), name="reward")
@@ -128,7 +125,7 @@ while True:
     global_step += 1
 
     xs = np.empty(0).reshape(0, input_size)
-    ys = np.empty(0).reshape(0, output_size)
+    ys = np.empty(0).reshape(0, action_space)
     rewards = np.empty(0).reshape(0, 1)
     ep_rewards = np.empty(0).reshape(0, 1)
 
@@ -145,15 +142,17 @@ while True:
 
         # Run the neural net to determine output
         action_prob = sess.run(action_pred, feed_dict={X: x})
-        action_prob = np.squeeze(action_prob)  # shape (?, 2) -> 2
-        random_noise = np.random.uniform(0, 1, output_size)
-        action = np.argmax(action_prob + random_noise)
+        action_prob = np.squeeze(action_prob)  # shape (?, n) -> n
+        action = np.random.choice(action_space, size=1, p=action_prob)[0]
+        
+        #random_noise = np.random.uniform(0, 1, output_size)
+        #action = np.argmax(action_prob + random_noise)
         # print("Action prediction: ", np.argmax(action_prob), " action taken:", action,
         #      np.argmax(action_prob) == action)
 
         # Append the observations and outputs for learning
         xs = np.vstack([xs, x])
-        y = np.eye(output_size)[action:action + 1]  # One hot encoding
+        y = np.eye(action_space)[action:action + 1]  # One hot encoding
         ys = np.vstack([ys, y])
 
         state, reward, done, _ = env.step(action)
