@@ -53,7 +53,7 @@ advantages = tf.placeholder(tf.float32, [None, 1], name="reward_signal")
 
 # Loss function
 # Sum (Ai*logp(yi|xi))
-log_lik = -Y * tf.log(action_pred)
+log_lik = -Y * (tf.log(action_pred)+0.0000000001)
 loss = tf.reduce_mean(tf.reduce_sum(log_lik * advantages, axis=1))
 tf.summary.scalar("A_pred", tf.reduce_mean(action_pred))
 tf.summary.scalar("Y", tf.reduce_mean(Y))
@@ -83,11 +83,14 @@ def discount_rewards(r, gamma=0.99):
         running_add = running_add * gamma + r[t]
         discounted_r[t] = running_add
 
+    #print "discounted_r:  ", discounted_r
+    
     # compute the discounted reward backwards through time
     # standardize the rewards to be unit normal (helps control the gradient
     # estimator variance)
-    discounted_r -= np.mean(discounted_r)
-    discounted_r /= np.std(discounted_r)
+    
+    #discounted_r -= np.mean(discounted_r)
+    #discounted_r /= np.std(discounted_r)
     return discounted_r
 
 
@@ -135,6 +138,7 @@ while True:
 
     # Initial 4 frame data
     s_t = np.array([state, state, state, state])
+    print s_t # this need to be visualized
 
     while True:
         # Append the observations to our batch
@@ -145,8 +149,6 @@ while True:
         action_prob = np.squeeze(action_prob)  # shape (?, n) -> n
         action = np.random.choice(action_space, size=1, p=action_prob)[0]
         
-        #random_noise = np.random.uniform(0, 1, output_size)
-        #action = np.argmax(action_prob + random_noise)
         # print("Action prediction: ", np.argmax(action_prob), " action taken:", action,
         #      np.argmax(action_prob) == action)
 
@@ -163,6 +165,7 @@ while True:
 
         ep_rewards = np.vstack([ep_rewards, reward])
 
+        #print "reward: ", reward
         # Discount rewards on every single game
         if reward == 1 or reward == -1:
             discounted_rewards = discount_rewards(ep_rewards, gamma)
@@ -170,12 +173,16 @@ while True:
             ep_rewards = np.empty(0).reshape(0, 1)
             # print(ep_rewards, discounted_rewards)
             print("Ep reward {}".format(reward))
+        
         if done:
+            print xs.shape, ys.shape, rewards.shape
             l, s, _ = sess.run([loss, summary, train],
                                feed_dict={X: xs,
                                           Y: ys,
                                           advantages: rewards,
                                           summary_reward: reward_sum})
+            
+        #if done:
             writer.add_summary(s, global_step)
             break
 
