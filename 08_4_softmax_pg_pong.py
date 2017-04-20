@@ -124,10 +124,10 @@ global_step = 0
 while True:
     global_step += 1
 
-    xs = np.empty(0).reshape(0, input_size)
-    ys = np.empty(0).reshape(0, action_space)
+    xs_list = []
+    ys_list = []
     rewards = np.empty(0).reshape(0, 1)
-    ep_rewards = np.empty(0).reshape(0, 1)
+    ep_rewards_list = []
 
     reward_sum = 0
     state = env.reset()
@@ -151,9 +151,9 @@ while True:
         #      np.argmax(action_prob) == action)
 
         # Append the observations and outputs for learning
-        xs = np.vstack([xs, x])
+        xs_list.append(x)
         y = np.eye(action_space)[action:action + 1]  # One hot encoding
-        ys = np.vstack([ys, y])
+        ys_list.append(y)
 
         state, reward, done, _ = env.step(action)
         # env.render()
@@ -161,16 +161,20 @@ while True:
         s_t = np.array([state, s_t[0], s_t[1], s_t[2]])  # s_t[4] out!
         reward_sum += reward
 
-        ep_rewards = np.vstack([ep_rewards, reward])
+        ep_rewards_list.append(reward)
 
         # Discount rewards on every single game
         if reward == 1 or reward == -1:
+            ep_rewards = np.vstack(ep_rewards_list)
             discounted_rewards = discount_rewards(ep_rewards, gamma)
             rewards = np.vstack([rewards, discounted_rewards])
-            ep_rewards = np.empty(0).reshape(0, 1)
+            ep_rewards_list = []
             # print(ep_rewards, discounted_rewards)
             print("Ep reward {}".format(reward))
         if done:
+            xs = np.vstack(xs_list)
+            ys = np.vstack(ys_list)
+            
             l, s, _ = sess.run([loss, summary, train],
                                feed_dict={X: xs,
                                           Y: ys,
