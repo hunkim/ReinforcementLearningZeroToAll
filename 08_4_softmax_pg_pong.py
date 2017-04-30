@@ -53,7 +53,7 @@ advantages = tf.placeholder(tf.float32, [None, 1], name="reward_signal")
 
 # Loss function
 # Sum (Ai*logp(yi|xi))
-log_lik = -Y * tf.log(action_pred)
+log_lik = -Y * (tf.log(tf.clip_by_value(action_pred, 1e-10 , 1.0)))
 loss = tf.reduce_mean(tf.reduce_sum(log_lik * advantages, axis=1))
 tf.summary.scalar("A_pred", tf.reduce_mean(action_pred))
 tf.summary.scalar("Y", tf.reduce_mean(Y))
