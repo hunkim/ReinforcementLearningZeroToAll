@@ -1,27 +1,49 @@
-# Lab code (WIP), but call for comments
+# Reinforcement Zero to All
 
-This is work in progress, and may have bugs. (lab-08 is in WIP.)
-However, we call for your comments and pull requests. Check out our style guide line:
+This is work in progress and it may have bugs.
+However, we call for your comments and pull requests. 
 
-* More TF (1.0) style: use more recent and decent TF APIs.
-* More Pythonic: fully leverage the power of python
-* Readability (over efficiency): Since it's for instruction purposes, we prefer *readability* over others.  
-* Understandability (over everything): Understanding TF key concepts is the main goal of this code.
-* KISS: Keep It Simple Stupid! https://www.techopedia.com/definition/20262/keep-it-simple-stupid-principle-kiss-principle
+We emphasize on the following:
+
+* **Readiability** over anything else
+    - That's why we choose Python
+* **Pythonic code**
+    - PEP8
+    - Docstring
+* **Use High Level Tensorflow API**
+    - Cleaner and easier to understand
+* **KISS**
+    - [Keep It Simple Stupid](https://www.techopedia.com/definition/20262/keep-it-simple-stupid-principle-kiss-principle)
+
+## Lecture videos
+- [Youtube](https://www.youtube.com/playlist?list=PLlMkM4tgfjnKsCWav-Z2F-MMFRx-2gMGG)
  
-## File naming rule:
+## File naming rule
 
-* lab-XX-X-[name].py: TensorFlow lab code
+```
+99_9_description.py
+```
+- First two digits indicates a category of algorithms
+    - 07: DQN
+    - 08: Policy Gradient
+    - 09: Random Search Methods
+    - 10: Actor Critic
+- A second digit indicates an id
+- Description shows what the file is about
+    
 
-## How to use uploader:
-* Go to https://gym.openai.com/
-* Login with your github account
+## How to use uploader
+It makes the uploading process a little bit simpler
+
+1. Go to https://gym.openai.com/
+2. Login with your github account
     * https://gym.openai.com/users/YOUR_GITHUB_ACCOUNT
-* Grab the api key from  
+3. Copy your OpenAI api key from the upper right corner of your profile page  
 ![user](assets/openai_user.jpg)
-* Modify `gym.ini`
-* In console
+4. Modify `gym.ini`
+5. In console
 ```bash
+#python gym_uploader.py /path/to/gym_results
 python gym_uploader.py gym-results/
 ```
 
@@ -35,19 +57,12 @@ TODO: Need to add more test cases
 
 ```bash
 pytest
-
-# http://stackoverflow.com/questions/14328406/
-pip install autopep8 # if you haven't install
-autopep8 . --recursive --in-place --pep8-passes 2000 --verbose --ignore E501
 ```
-## Automatically create requirements.txt
 
 ```bash
-pip install pipreqs
-
-pipreqs /path/to/project
+# pip install autopep8 # if you haven't install
+autopep8 . --recursive --in-place --pep8-passes 2000 --verbose --ignore E501
 ```
-http://stackoverflow.com/questions/31684375
 
 ## Contributions/Comments
 We always welcome your comments and pull requests.
