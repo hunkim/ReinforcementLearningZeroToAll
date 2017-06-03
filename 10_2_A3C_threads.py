@@ -203,14 +203,16 @@ class A3CNetwork(object):
                                                            predictions=self.values)
 
             self.total_loss = self.actor_loss + self.value_loss * .5
-            self.optimizer = tf.train.RMSPropOptimizer(learning_rate=0.01, decay=.99)
+            self.optimizer = tf.train.AdamOptimizer()
 
         var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=name)
         self.gradients = self.optimizer.compute_gradients(self.total_loss, var_list)
         self.gradients_placeholders = []
 
         for grad, var in self.gradients:
-            self.gradients_placeholders.append((tf.placeholder(var.dtype, shape=var.get_shape()), var))
+            placeholder = tf.placeholder(var.dtype, shape=var.get_shape())
+            placeholder = tf.clip_by_norm(placeholder, 40)
+            self.gradients_placeholders.append((placeholder, var))
         self.apply_gradients = self.optimizer.apply_gradients(self.gradients_placeholders)
 
         if logdir:
@@ -369,7 +371,7 @@ def main():
             os.makedirs(checkpoint_dir)
             print("Directory {} was created".format(checkpoint_dir))
 
-        n_threads = 4
+        n_threads = 16
         input_shape = [80, 80, 1]
         output_dim = 3  # {1, 2, 3}
         global_network = A3CNetwork(name="global",
@@ -380,7 +382,7 @@ def main():
         env_list = []
 
         for id in range(n_threads):
-            env = gym.make("Pong-v0")
+            env = gym.make("PongDeterministic-v4")
 
             if id == 0:
                 env = gym.wrappers.Monitor(env, monitor_dir, force=True)
@@ -400,6 +402,7 @@ def main():
             saver = tf.train.Saver(var_list=var_list)
             saver.restore(sess, save_path)
             print("Model restored to global")
+
         else:
             init = tf.global_variables_initializer()
             sess.run(init)
