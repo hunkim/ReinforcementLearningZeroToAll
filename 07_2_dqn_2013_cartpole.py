@@ -1,63 +1,53 @@
 """
-This code is based on:
-https://github.com/hunkim/DeepRL-Agents
+DQN (NIPS 2013)
 
-CF https://github.com/golbin/TensorFlow-Tutorials
+Playing Atari with Deep Reinforcement Learning
+https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf
 """
 import numpy as np
 import tensorflow as tf
 import random
 import dqn
+import gym
 from collections import deque
 
-import gym
 env = gym.make('CartPole-v0')
 env = gym.wrappers.Monitor(env, 'gym-results/', force=True)
-# Constants defining our neural network
 INPUT_SIZE = env.observation_space.shape[0]
 OUTPUT_SIZE = env.action_space.n
 
-# Q(s, a) = r + discount_rate * max Q(s_next, a)
 DISCOUNT_RATE = 0.99
 REPLAY_MEMORY = 50000
 MAX_EPISODE = 5000
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 # minimum epsilon for epsilon greedy
-MIN_E = 0.01
-# if epsilon decaying_episode = 100
-# epsilon lineary decreases to MIN_E over 100 episodes
-EPSILON_DECAYING_EPISODE = MAX_EPISODE * 0.1
+MIN_E = 0.0
+# epsilon will be `MIN_E` at `EPSILON_DECAYING_EPISODE`
+EPSILON_DECAYING_EPISODE = MAX_EPISODE * 0.01
 
 
-def bot_play(mainDQN):
-    """ Run a single episode with the DQN agent
+def bot_play(mainDQN: dqn.DQN) -> None:
+    """Runs a single episode with rendering and prints a reward
 
-    Parameters
-    ----------
-    mainDQN : DQN agent
-
-    Returns
-    ----------
-    reward : float
-        Episode reward is returned
+    Args:
+        mainDQN (dqn.DQN): DQN Agent
     """
-
     state = env.reset()
-    reward_sum = 0
+    total_reward = 0
 
     while True:
         env.render()
         action = np.argmax(mainDQN.predict(state))
         state, reward, done, _ = env.step(action)
-        reward_sum += reward
+        total_reward += reward
         if done:
-            print("Total score: {}".format(reward_sum))
+            print("Total score: {}".format(total_reward))
             break
 
 
-def simple_replay_train(DQN, train_batch):
-    """ Prepare X_batch, y_batch and train them
+def train_minibatch(DQN: dqn.DQN, train_batch: list) -> float:
+    """Prepare X_batch, y_batch and train them
 
     Recall our loss function is
         target = reward + discount * max Q(s',a)
@@ -71,64 +61,61 @@ def simple_replay_train(DQN, train_batch):
         y_batch is reward + discount * max Q
                    or reward if terminated early
 
-    Parameters
-    ----------
-    DQN : DQN Agent
+    Args:
+        DQN (dqn.DQN): DQN Agent to train & run
+        train_batch (list): Minibatch of Replay memory
+            Eeach element is a tuple of (s, a, r, s', done)
 
-    train_batch : list, [item_1, item_2, ..., item_batchsize]
-        where item_i is also a list
-        item_i = [state, action, reward, next_state, done]
+    Returns:
+        loss: Returns a loss
 
     """
-    # We use numpy to vectorize operations
-    tmp = np.asarray(train_batch)
-
-    # state_array.shape = (batch_size, 4)
-    state_array = np.vstack(tmp[:, 0])
-
-    # action_array.shape = (batch_size, )
-    action_array = tmp[:, 1].astype(np.int32)
-
-    # reward_array.shape = (batch_size, )
-    reward_array = tmp[:, 2]
-
-    # next_state_array.shape = (batch_size, 4)
-    next_state_array = np.vstack(tmp[:, 3])
-
-    # done_array.shape = (batch_size, )
-    done_array = tmp[:, 4].astype(np.int32)
+    state_array = np.vstack([x[0] for x in train_batch])
+    action_array = np.array([x[1] for x in train_batch])
+    reward_array = np.array([x[2] for x in train_batch])
+    next_state_array = np.vstack([x[3] for x in train_batch])
+    done_array = np.array([x[4] for x in train_batch])
 
     X_batch = state_array
     y_batch = DQN.predict(state_array)
 
-    # We use a vectorized operation
-    target = reward_array + DISCOUNT_RATE * np.max(DQN.predict(next_state_array), 1) * (1 - done_array)
-    y_batch[np.arange(len(X_batch)), action_array] = target
+    Q_target = reward_array + DISCOUNT_RATE * np.max(DQN.predict(next_state_array), axis=1) * ~done_array
+    y_batch[np.arange(len(X_batch)), action_array] = Q_target
 
     # Train our network using target and predicted Q values on each episode
-    return DQN.update(X_batch, y_batch)
+    loss, _ = DQN.update(X_batch, y_batch)
+
+    return loss
 
 
-def annealing_epsilon(episode, min_e, max_e, target_episode):
+def annealing_epsilon(episode: int, min_e: float, max_e: float, target_episode: int) -> float:
     """Return an linearly annealed epsilon
 
-    Parameters
-    ----------
+    Epsilon will decrease over time until it reaches `target_episode`
 
-        (epsilon)
-            |
-   max_e ---|\
-            | \
-            |  \
-            |   \
-   min_e ---|____\_______________(episode)
-                 |
-                target_episode
+         (epsilon)
+             |
+    max_e ---|\
+             | \
+             |  \
+             |   \
+    min_e ---|____\_______________(episode)
+                  |
+                 target_episode
 
-    slope = (min_e - max_e) / (target_episode)
-    intercept = max_e
+     slope = (min_e - max_e) / (target_episode)
+     intercept = max_e
 
-    e = slope * episode + intercept
+     e = slope * episode + intercept
+
+    Args:
+        episode (int): Current episode
+        min_e (float): Minimum epsilon
+        max_e (float): Maximum epsilon
+        target_episode (int): epsilon becomes the `min_e` at `target_episode`
+
+    Returns:
+        float: epsilon between `min_e` and `max_e`
     """
 
     slope = (min_e - max_e) / (target_episode)
@@ -138,38 +125,9 @@ def annealing_epsilon(episode, min_e, max_e, target_episode):
 
 
 def main():
-    """
-    pseudocode
-
-    For episode = 1, ..., M
-
-        s = initital state
-
-        For t = 1, ..., T
-
-            action = argmax Q(s, a)
-
-            Get s2, r, d by playing the action
-
-            save [s,a,r,s2,d] to memory
-
-            take a minibatch from memory
-
-            y = r
-                or r + d * max Q(s2, ...)
-
-            Perform train step on (y - Q(s, a))^2
-
-    """
-
     # store the previous observations in replay memory
-    replay_buffer = deque()
-
-    # Check whether we clear the game
-    # CartPole Clear Condition
-    # Avg Reward >= 195 over 100 games
-    # We will choose more strict condition by setting 199
-    last_100_game_reward = deque()
+    replay_buffer = deque(maxlen=REPLAY_MEMORY)
+    last_100_game_reward = deque(maxlen=100)
 
     with tf.Session() as sess:
         mainDQN = dqn.DQN(sess, INPUT_SIZE, OUTPUT_SIZE)
@@ -186,46 +144,32 @@ def main():
 
                 if np.random.rand() < e:
                     action = env.action_space.sample()
-
                 else:
-                    # Choose an action by greedily from the Q-network
                     action = np.argmax(mainDQN.predict(state))
 
-                # Get new state and reward from environment
                 next_state, reward, done, _ = env.step(action)
 
                 if done:
                     reward = -1
 
-                # Save the experience to our buffer
                 replay_buffer.append((state, action, reward, next_state, done))
-                if len(replay_buffer) > REPLAY_MEMORY:
-                    replay_buffer.popleft()
 
                 state = next_state
                 step_count += 1
 
-                if step_count % 4 == 0 and len(replay_buffer) > BATCH_SIZE:
-                    # Minibatch works better
+                if len(replay_buffer) > BATCH_SIZE:
                     minibatch = random.sample(replay_buffer, BATCH_SIZE)
-                    simple_replay_train(mainDQN, minibatch)
+                    train_minibatch(mainDQN, minibatch)
 
             print("[Episode {:>5}]  steps: {:>5} e: {:>5.2f}".format(episode, step_count, e))
 
+            # CartPole-v0 Game Clear Logic
             last_100_game_reward.append(step_count)
-
-            if len(last_100_game_reward) > 100:
-
-                last_100_game_reward.popleft()
-
+            if len(last_100_game_reward) == last_100_game_reward.maxlen:
                 avg_reward = np.mean(last_100_game_reward)
                 if avg_reward > 199.0:
                     print("Game Cleared within {} episodes with avg reward {}".format(episode, avg_reward))
                     break
-
-        # Test run 5 times
-        for _ in range(5):
-            bot_play(mainDQN)
 
 
 if __name__ == "__main__":
